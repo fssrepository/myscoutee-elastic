@@ -1,0 +1,217 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.5.5
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "true"
+      xpack.security.http.ssl.enabled: "false"
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+      xpack.ml.enabled: "false"
+      cluster.routing.allocation.disk.watermark.low: 6gb
+      cluster.routing.allocation.disk.watermark.high: 3gb
+      cluster.routing.allocation.disk.watermark.flood_stage: 1.5gb
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - elastic-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -u elastic:$$ELASTIC_PASSWORD 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=3s' | grep -Eq '\"status\":\"(yellow|green)\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    mem_limit: 1g
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.5.5
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD:?Run bash scripts/core-lab.sh}
+      XPACK_SECURITY_ENABLED: "true"
+      XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: ${KIBANA_SAVED_OBJECTS_KEY:?Run bash scripts/core-lab.sh}
+      XPACK_SECURITY_ENCRYPTIONKEY: ${KIBANA_SECURITY_KEY:?Run bash scripts/core-lab.sh}
+      XPACK_REPORTING_ENCRYPTIONKEY: ${KIBANA_REPORTING_KEY:?Run bash scripts/core-lab.sh}
+      TELEMETRY_ENABLED: "false"
+    ports:
+      - "127.0.0.1:5601:5601"
+    volumes:
+      - ./config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    mem_limit: 1g
+
+  demo-bootstrap:
+    profiles: ["bootstrap"]
+    image: python:3.12-slim
+    command: ["python", "/bootstrap/seed_demo.py"]
+    environment:
+      ELASTIC_URL: http://elasticsearch:9200
+      ELASTIC_USERNAME: elastic
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+    volumes:
+      - ./scripts/seed_demo.py:/bootstrap/seed_demo.py:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: "no"
+
+  kibana-bootstrap:
+    profiles: ["bootstrap"]
+    image: python:3.12-slim
+    command: ["python", "/bootstrap/bootstrap_kibana.py"]
+    environment:
+      KIBANA_URL: http://kibana:5601
+      KIBANA_USERNAME: elastic
+      KIBANA_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+    volumes:
+      - ./scripts/bootstrap_kibana.py:/bootstrap/bootstrap_kibana.py:ro
+    depends_on:
+      kibana:
+        condition: service_started
+      demo-bootstrap:
+        condition: service_completed_successfully
+    restart: "no"
+
+  app:
+    build: .
+    environment:
+      ELASTIC_URL: http://elasticsearch:9200
+      ELASTIC_USERNAME: elastic
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+      CODEFORGE_PASSWORD: ${CODEFORGE_PASSWORD:?Run bash scripts/core-lab.sh}
+      SOURCE_PATH: /source
+      PROJECT_NAME: ${PROJECT_NAME:-MyScoutee sample}
+      ACTIVITY_FILE: /activity/codeforge.jsonl
+    ports:
+      - "127.0.0.1:8088:8080"
+    volumes:
+      - ${SOURCE_ROOT:-./samples/myscoutee-inspired}:/source:ro
+      - activity-data:/activity
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.5.5
+    environment:
+      LS_JAVA_OPTS: -Xms256m -Xmx256m
+      ES_USERNAME: elastic
+      ES_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+    volumes:
+      - ./config/logstash/pipeline.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    mem_limit: 1g
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:9.5.5
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ./config/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - activity-data:/activity:ro
+      - filebeat-data:/usr/share/filebeat/data
+    depends_on:
+      - logstash
+      - app
+    restart: unless-stopped
+    mem_limit: 256m
+
+  metricbeat:
+    image: docker.elastic.co/beats/metricbeat:9.5.5
+    command: ["metricbeat", "-e", "--strict.perms=false"]
+    environment:
+      ES_USERNAME: elastic
+      ES_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+    volumes:
+      - ./config/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
+      - metricbeat-data:/usr/share/metricbeat/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      kibana:
+        condition: service_started
+    restart: unless-stopped
+    mem_limit: 256m
+
+  heartbeat:
+    image: docker.elastic.co/beats/heartbeat:9.5.5
+    command: ["heartbeat", "-e", "--strict.perms=false"]
+    environment:
+      ES_USERNAME: elastic
+      ES_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+      CODEFORGE_PASSWORD: ${CODEFORGE_PASSWORD:?Run bash scripts/core-lab.sh}
+    volumes:
+      - ./config/heartbeat.yml:/usr/share/heartbeat/heartbeat.yml:ro
+      - heartbeat-data:/usr/share/heartbeat/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      app:
+        condition: service_started
+    restart: unless-stopped
+    mem_limit: 256m
+
+  elastic-agent:
+    profiles: ["agent"]
+    image: docker.elastic.co/elastic-agent/elastic-agent-slim:9.5.5
+    environment:
+      ES_USERNAME: elastic
+      ES_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+    volumes:
+      - ./config/elastic-agent.yml:/usr/share/elastic-agent/elastic-agent.yml:ro
+      - agent-data:/usr/share/elastic-agent/state
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 512m
+
+  auditbeat:
+    profiles: ["deep"]
+    image: docker.elastic.co/beats/auditbeat:9.5.5
+    command: ["auditbeat", "-e", "--strict.perms=false"]
+    environment:
+      ES_USERNAME: elastic
+      ES_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+    volumes:
+      - ./config/auditbeat.yml:/usr/share/auditbeat/auditbeat.yml:ro
+      - ${SOURCE_ROOT:-./samples/myscoutee-inspired}:/source:ro
+      - auditbeat-data:/usr/share/auditbeat/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 256m
+
+  packetbeat:
+    profiles: ["deep"]
+    image: docker.elastic.co/beats/packetbeat:9.5.5
+    user: root
+    command: ["packetbeat", "-e", "--strict.perms=false"]
+    environment:
+      ES_USERNAME: elastic
+      ES_PASSWORD: ${ELASTIC_PASSWORD:?Run bash scripts/core-lab.sh}
+    cap_add: [NET_RAW, NET_ADMIN]
+    network_mode: "service:app"
+    volumes:
+      - ./config/packetbeat.yml:/usr/share/packetbeat/packetbeat.yml:ro
+      - packetbeat-data:/usr/share/packetbeat/data
+    depends_on:
+      - app
+    restart: unless-stopped
+    mem_limit: 256m
+
+volumes:
+  elastic-data:
+  activity-data:
+  filebeat-data:
+  metricbeat-data:
+  heartbeat-data:
+  agent-data:
+  auditbeat-data:
+  packetbeat-data:

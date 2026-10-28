@@ -1,0 +1,15 @@
+auditbeat.modules:
+  - module: file_integrity
+    paths:
+      - /source/server/projects/profile/src/main/java
+      - /source/frontend/src/app
+    scan_at_start: true
+    recursive: true
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  username: ${ES_USERNAME}
+  password: ${ES_PASSWORD}
+
+setup.ilm.enabled: false
+logging.level: warning

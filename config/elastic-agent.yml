@@ -1,0 +1,18 @@
+outputs:
+  default:
+    type: elasticsearch
+    hosts: ["http://elasticsearch:9200"]
+    username: ${ES_USERNAME}
+    password: ${ES_PASSWORD}
+
+inputs:
+  - type: system/metrics
+    id: codeforge-agent-system
+    data_stream.namespace: codeforge
+    streams:
+      - metricsets: ["cpu"]
+        data_stream.dataset: system.cpu
+        period: 30s
+      - metricsets: ["memory"]
+        data_stream.dataset: system.memory
+        period: 30s

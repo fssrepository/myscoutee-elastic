@@ -1,0 +1,31 @@
+heartbeat.monitors:
+  - type: http
+    id: codeforge
+    name: CodeForge
+    urls: ["http://app:8080/api/health"]
+    username: codeforge
+    password: ${CODEFORGE_PASSWORD}
+    schedule: '@every 15s'
+    check.response.status: [200]
+  - type: http
+    id: elasticsearch
+    name: Elasticsearch
+    urls: ["http://elasticsearch:9200/_cluster/health"]
+    username: ${ES_USERNAME}
+    password: ${ES_PASSWORD}
+    schedule: '@every 15s'
+    check.response.status: [200]
+  - type: http
+    id: kibana
+    name: Kibana
+    urls: ["http://kibana:5601/api/status"]
+    schedule: '@every 15s'
+    check.response.status: [200]
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  username: ${ES_USERNAME}
+  password: ${ES_PASSWORD}
+
+setup.ilm.enabled: false
+logging.level: warning

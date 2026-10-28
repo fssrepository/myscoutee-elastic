@@ -1,0 +1,37 @@
+server.host: "0.0.0.0"
+uiSettings.overrides.defaultRoute: "/app/fleet/agents"
+elasticsearch.hosts: ["http://elasticsearch:9200"]
+xpack.encryptedSavedObjects.encryptionKey: "CodeForgeFleetLabOnly-32-char-key-2026"
+xpack.security.encryptionKey: "CodeForgeFleetSecurityKey-2026-Local"
+xpack.fleet.agents.enabled: true
+xpack.fleet.agents.fleet_server.hosts: ["http://fleet-server:8220"]
+xpack.fleet.outputs:
+  - id: fleet-default-output
+    name: default
+    type: elasticsearch
+    hosts: ["http://elasticsearch:9200"]
+    is_default: true
+    is_default_monitoring: true
+xpack.fleet.packages:
+  - name: fleet_server
+    version: latest
+  - name: system
+    version: latest
+xpack.fleet.agentPolicies:
+  - name: CodeForge Fleet Server
+    id: fleet-server-policy
+    namespace: codeforge
+    monitoring_enabled: []
+    is_default_fleet_server: true
+    package_policies:
+      - name: fleet-server-integration
+        package:
+          name: fleet_server
+  - name: CodeForge managed agent
+    id: codeforge-managed-agent
+    namespace: codeforge
+    monitoring_enabled: []
+    package_policies:
+      - name: system-integration
+        package:
+          name: system

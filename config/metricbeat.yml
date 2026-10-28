@@ -1,0 +1,15 @@
+metricbeat.modules:
+  - module: elasticsearch
+    metricsets: ["cluster_stats", "node_stats", "index_summary"]
+    hosts: ["http://elasticsearch:9200"]
+    username: ${ES_USERNAME}
+    password: ${ES_PASSWORD}
+    period: 30s
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  username: ${ES_USERNAME}
+  password: ${ES_PASSWORD}
+
+setup.ilm.enabled: false
+logging.level: warning

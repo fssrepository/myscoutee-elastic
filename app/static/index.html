@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CodeForge · Elastic lab</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">⌘</span><div><strong>CodeForge</strong><small>ELASTIC LAB</small></div></div>
+      <div class="side-caption">MUNKATERÜLET</div>
+      <nav aria-label="Főmenü">
+        <button class="nav active" data-view="overview"><span>◫</span> Áttekintés</button>
+        <button class="nav" data-view="findings"><span>◇</span> Találatok</button>
+        <button class="nav" data-view="files"><span>≡</span> Fájlkereső</button>
+        <button class="nav" data-view="stack"><span>◎</span> Stack labor</button>
+        <button class="nav" data-view="esql"><span>⌁</span> ES|QL labor</button>
+      </nav>
+      <div class="side-bottom"><span class="online-dot"></span> Helyi Docker munkatér<br><small>Elasticsearch · Kibana</small></div>
+    </aside>
+
+    <main>
+      <header class="topbar"><div><div class="eyebrow">PROJECT INTELLIGENCE</div><h1 id="page-title">Áttekintés</h1></div><div class="top-actions"><span id="project-chip" class="chip">MyScoutee sample</span><button id="scan-button" class="primary">↻ &nbsp;Újraszkennelés</button></div></header>
+      <div id="notice" class="notice" hidden></div>
+
+      <section id="overview" class="view active">
+        <div class="intro"><div><span class="eyebrow">SOURCE → SIGNAL</span><h2>A kódbázis kereshető képe.</h2><p>Fájlok, felülvizsgálati jelek és csapatokhoz köthető modulok egy Elastic indexben. Az eredmények tájékozódásra szolgálnak, nem helyettesítik a statikus elemzőt.</p></div><div class="intro-icon">{ }</div></div>
+        <div id="metrics" class="metrics"></div>
+        <div class="grid two"><article class="panel"><div class="panel-head"><div><span class="eyebrow">DISTRIBUTION</span><h3>Találatok szabály szerint</h3></div><span class="panel-icon">↗</span></div><div id="rule-bars"></div></article><article class="panel"><div class="panel-head"><div><span class="eyebrow">HOTSPOTS</span><h3>Modulok terhelése</h3></div><span class="panel-icon">◈</span></div><div id="module-bars"></div></article></div>
+        <article class="panel"><div class="panel-head"><div><span class="eyebrow">SOURCE MAP</span><h3>Legnagyobb fájlok</h3></div><button class="text-button jump" data-view="files">Minden fájl →</button></div><div id="largest-files"></div></article>
+      </section>
+
+      <section id="findings" class="view"><div class="section-head"><div><span class="eyebrow">REVIEW QUEUE</span><h2>Találatok</h2><p>A szabályok egyszerű, visszakövethető jelzések. Nyisd meg a fájlt a pontos sorhoz, vagy jelöld a döntésed.</p></div><strong id="finding-total" class="result-count"></strong></div><div class="toolbar"><input id="finding-search" type="search" placeholder="Keresés üzenetben vagy kódrészletben…"><select id="filter-module"><option value="">Minden modul</option></select><select id="filter-rule"><option value="">Minden szabály</option></select><select id="filter-severity"><option value="">Minden súlyosság</option></select><select id="filter-status"><option value="">Minden állapot</option></select></div><div id="finding-list" class="list"></div><div class="pagination"><button id="prev-page">← Előző</button><span id="page-indicator"></span><button id="next-page">Következő →</button></div></section>
+
+      <section id="files" class="view"><div class="section-head"><div><span class="eyebrow">FULL TEXT SEARCH</span><h2>Fájlkereső</h2><p>Keresés a forrás tartalmában, találati részletekkel és fájlszintű mutatókkal.</p></div><strong id="file-total" class="result-count"></strong></div><div class="toolbar"><input id="file-search" type="search" placeholder="Például: NotificationService, repository, event…"></div><div id="file-list" class="list"></div></section>
+
+      <section id="stack" class="view"><div class="section-head"><div><span class="eyebrow">DATA FLOW</span><h2>Stack labor</h2><p>Az egyes adatgyűjtési utak dokumentumszáma az Elasticsearch indexekből. A számlálók frissülnek, amikor új esemény érkezik.</p></div><button id="refresh-stack" class="primary">↻ &nbsp;Frissítés</button></div><div id="stack-streams" class="stack-streams"></div><article class="panel"><div class="panel-head"><h3>Próbaút</h3></div><ol class="steps"><li>Indíts újraszkennelést: az app eseményt ír a közös naplóba.</li><li>Filebeat továbbítja Logstashnek, amely az időbélyeget feldolgozva a <code>forge-activity</code> indexbe ír.</li><li>Metricbeat és Heartbeat külön mérőszámokat és elérhetőségi adatokat küld.</li><li>Nyisd meg az indexeket Kibana Discoverben, és változtasd meg a szűrőket.</li></ol></article></section>
+
+      <section id="esql" class="view"><div class="section-head"><div><span class="eyebrow">ELASTIC QUERY LANGUAGE</span><h2>ES|QL labor</h2><p>Négy valódi aggregációs lekérdezés a szkennelt indexeken. A lekérdezést a Kibana Dev Toolsban is kipróbálhatod.</p></div></div><div class="query-options"><button class="query-tab active" data-query="hotspots">Modulok</button><button class="query-tab" data-query="rules">Szabályok</button><button class="query-tab" data-query="languages">Nyelvek</button><button class="query-tab" data-query="decisions">Döntések</button></div><pre id="query-code" class="query-code"></pre><div class="panel"><div class="panel-head"><h3>Eredmény</h3><a href="http://localhost:5601/app/dev_tools#/console" target="_blank" rel="noopener">Kibana Dev Tools ↗</a></div><div class="table-wrap"><table id="query-table"></table></div></div></section>
+    </main>
+  </div>
+  <dialog id="detail"><div class="dialog-head"><div><span class="eyebrow">SOURCE DETAIL</span><h2 id="detail-title"></h2></div><button id="close-detail" aria-label="Bezárás">×</button></div><div id="detail-meta" class="detail-meta"></div><div id="detail-findings"></div><pre id="detail-code" class="source-code"></pre></dialog>
+  <script src="/app.js" defer></script>
+</body>
+</html>

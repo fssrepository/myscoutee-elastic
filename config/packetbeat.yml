@@ -1,0 +1,12 @@
+packetbeat.interfaces.device: any
+packetbeat.protocols:
+  - type: http
+    ports: [8080, 9200]
+
+output.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  username: ${ES_USERNAME}
+  password: ${ES_PASSWORD}
+
+setup.ilm.enabled: false
+logging.level: warning
